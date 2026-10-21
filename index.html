@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>天気記号マスター</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f7;
+            --panel-bg: #ffffff;
+            --text-color: #2c3e50;
+            --primary-color: #2980b9;
+            --secondary-color: #3498db;
+            --accent-color: #f39c12;
+            --success-color: #27ae60;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow-x: hidden;
+        }
+
+        #app {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            flex-direction: row;
+        }
+
+        /* 左側：描画キャンバス領域 */
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: var(--bg-color);
+        }
+
+        canvas {
+            display: block;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* 右側：操作パネル領域 */
+        #control-panel {
+            width: 350px;
+            background-color: var(--panel-bg);
+            padding: 16px 20px;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 10;
+        }
+
+        h2, h3 {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 4px;
+            margin-bottom: 4px;
+        }
+
+        h2 { font-size: 1.4em; }
+        h3 { font-size: 1.1em; }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            background-color: #f8f9fa;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
+        label {
+            display: flex;
+            align-items: center;
+            font-size: 15px;
+            cursor: pointer;
+            padding: 4px 0;
+            user-select: none;
+        }
+
+        input[type="radio"] {
+            margin-right: 10px;
+            width: 20px;
+            height: 20px;
+            accent-color: var(--primary-color);
+            flex-shrink: 0;
+            margin-top: -2px;
+        }
+
+        button {
+            padding: 12px 16px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            min-height: 48px;
+            transition: transform 0.1s, box-shadow 0.1s, background-color 0.2s;
+            margin-bottom: 6px;
+            position: relative;
+        }
+
+        #btn-flip {
+            background-color: var(--primary-color);
+            box-shadow: 0 6px 0 #1a252f, 0 8px 10px rgba(0,0,0,0.2);
+        }
+
+        #btn-flip:hover {
+            background-color: var(--secondary-color);
+        }
+
+        #btn-flip:active {
+            transform: translateY(6px);
+            box-shadow: 0 0px 0 #1a252f, 0 2px 3px rgba(0,0,0,0.2);
+        }
+
+        #btn-next {
+            background-color: var(--success-color);
+            box-shadow: 0 6px 0 #1e8449, 0 8px 10px rgba(0,0,0,0.2);
+            display: none;
+        }
+
+        #btn-next:hover {
+            background-color: #219653;
+        }
+
+        #btn-next:active {
+            transform: translateY(6px);
+            box-shadow: 0 0px 0 #1e8449, 0 2px 3px rgba(0,0,0,0.2);
+        }
+
+        #btn-show-list {
+            background-color: #7f8c8d;
+            box-shadow: 0 6px 0 #5f6a6a, 0 8px 10px rgba(0,0,0,0.2);
+            font-size: 15px;
+            padding: 8px 12px;
+            min-height: 44px;
+        }
+
+        #btn-show-list:hover {
+            background-color: #95a5a6;
+        }
+
+        #btn-show-list:active {
+            transform: translateY(6px);
+            box-shadow: 0 0px 0 #5f6a6a, 0 2px 3px rgba(0,0,0,0.2);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: var(--panel-bg);
+            padding: 24px;
+            border-radius: 12px;
+            width: 92%;
+            max-width: 650px;
+            max-height: 85vh;
+            overflow-y: auto;
+            position: relative;
+            color: var(--text-color);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #7f8c8d;
+            line-height: 1;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        .list-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .list-table th, .list-table td {
+            border: 1px solid #ddd;
+            padding: 10px 8px;
+            text-align: left;
+            font-size: 14px;
+            vertical-align: middle;
+        }
+
+        .list-table th {
+            background-color: #f8f9fa;
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+
+        .symbol-cell {
+            text-align: center;
+            width: 50px;
+        }
+
+        #info-box {
+            background-color: #fff9c4;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 6px solid var(--accent-color);
+            display: none;
+            color: #2f3640;
+            line-height: 1.5;
+            font-size: 14px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        #info-box.visible {
+            display: block;
+            animation: slideDown 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .hint-text {
+            font-size: 14px;
+            color: #7f8c8d;
+            text-align: center;
+            margin-top: -10px;
+        }
+
+        #portrait-warning {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.85);
+            color: white;
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .rotate-icon {
+            font-size: 48px;
+            animation: rotateDevice 2s infinite;
+        }
+
+        @keyframes rotateDevice {
+            0% { transform: rotate(0deg); }
+            50% { transform: rotate(-90deg); }
+            100% { transform: rotate(-90deg); }
+        }
+
+        @media (orientation: portrait) {
+            #portrait-warning {
+                display: flex;
+            }
+            #app {
+                pointer-events: none;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            #control-panel {
+                width: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- キャンバス描画領域 -->
+        <div id="canvas-container">
+            <canvas id="mainCanvas"></canvas>
+        </div>
+
+        <!-- 操作パネル領域 -->
+        <div id="control-panel">
+            <h2>天気記号マスター</h2>
+            
+            <!-- 暗記モード -->
+            <div class="control-group">
+                <h3>暗記カードモード</h3>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="mode" value="1" checked> 
+                        記号 → 天気名
+                    </label>
+                    <label>
+                        <input type="radio" name="mode" value="2"> 
+                        天気名 → 記号
+                    </label>
+                </div>
+            </div>
+
+            <!-- 4択クイズモード -->
+            <div class="control-group">
+                <h3>4択クイズモード</h3>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="mode" value="3"> 
+                        記号を見て天気名を当てる
+                    </label>
+                    <label>
+                        <input type="radio" name="mode" value="4"> 
+                        天気名を見て記号を当てる
+                    </label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <button id="btn-flip">答えを見る</button>
+                <button id="btn-next">次の問題へ</button>
+                <p class="hint-text">※カードをタップしてもめくれます</p>
+            </div>
+
+            <!-- 解説・豆知識表示エリア -->
+            <div id="info-box">
+                <h3 id="info-title" style="color: #d35400; border-bottom-color: #d35400;">解説・豆知識</h3>
+                <p id="info-text">正解するとここに解説が表示されます。</p>
+            </div>
+
+            <div class="control-group">
+                <button id="btn-show-list">天気記号一覧を見る</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 天気記号一覧モーダル -->
+    <div id="list-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2 style="color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; margin-bottom: 15px;">天気記号一覧（全17種）</h2>
+            <div id="list-container"></div>
+        </div>
+    </div>
+
+    <!-- 縦向き警告オーバーレイ -->
+    <div id="portrait-warning">
+        <div class="rotate-icon">📱</div>
+        <p>端末を横向きにして<br>ご使用ください</p>
+    </div>
+
+    <script>
+        // 天気記号マスターデータ（全17種）
+        const weatherTypes = [
+            { id: 'kaisei', name: '快晴', desc: '◯ (丸のみ)', info: '雲量が0〜1の状態。空に雲がほとんどない快晴を表します。' },
+            { id: 'hare', name: '晴れ', desc: '◯の中に縦線1本', info: '雲量が2〜8の状態。日差しが届く一般的な晴れを表します。' },
+            { id: 'kumori', name: '曇り', desc: '◯の中に二重丸', info: '雲量が9〜10の状態。空のほとんどが雲で覆われています。' },
+            { id: 'ame', name: '雨', desc: '● (黒塗り丸)', info: '通常の雨を表します。記号は全体が黒く塗られています。' },
+            { id: 'ame_tsuyoshi', name: '強い雨', desc: '●の右下に「ツ」', info: '降水強度の強い雨を表します。「ツ」は強い（つよい）の略表記です。' },
+            { id: 'niwaka_ame', name: 'にわか雨', desc: '●の右下に「＝」', info: '一時的に降る強さの変化が急な雨を表します。「＝」はにわかを意味します。' },
+            { id: 'kirisame', name: '霧雨', desc: '●の右下に「キ」', info: '水滴が非常に小さく細かな雨（きりさめ）を表します。「キ」は霧雨の略です。' },
+            { id: 'yuki', name: '雪', desc: '◯の中に放射線', info: '通常の雪を表します。白丸の中に米印（8方向の放射線）を描きます。' },
+            { id: 'yuki_tsuyoshi', name: '強い雪', desc: '雪記号の右下に「ツ」', info: '降り方の強い雪を表します。' },
+            { id: 'niwaka_yuki', name: 'にわか雪', desc: '雪記号の右下に「＝」', info: '一時的に降るにわか雪を表します。' },
+            { id: 'mizore', name: 'みぞれ', desc: '上半分が雪、下半分が雨', info: '雨と雪が混ざって降る気象現象です。' },
+            { id: 'arare', name: 'あられ', desc: '◯の中に三角形の輪郭', info: '直径5mm未満の氷の粒が降る現象です。' },
+            { id: 'hyo', name: 'ひょう', desc: '◯の中に黒塗り三角形', info: '積乱雲から降る直径5mm以上の氷の塊です。' },
+            { id: 'kaminari', name: '雷', desc: '◯の下半分が黒塗り', info: '雷電（雷鳴や電光）を伴う天気を表します。' },
+            { id: 'kaminari_tsuyoshi', name: '強い雷', desc: '雷記号の右下に「ツ」', info: '勢力の強い雷を表します。' },
+            { id: 'kiri', name: '霧', desc: '◯の中に小さな黒丸', info: '微小な水滴が浮遊し見通し（視程）が悪くなっている状態です。' },
+            { id: 'tenki_fumei', name: '天気不明', desc: '◯の中に×印', info: '観測不能または天気が不明な状態を表します。' }
+        ];
+
+        // 配列シャッフル関数
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // グローバル状態変数
+        let deck = [];
+        let deckIndex = 0;
+        let mode = 1;
+        let isFlipped = false;
+        let flipProgress = 0;
+        let isAnimating = false;
+        let animationStartTime = 0;
+        const FLIP_DURATION = 300;
+        let pressedButtonIndex = -1;
+        let feedbackState = 0;
+        let quizButtons = [];
+        let quizQuestionCount = 1;
+        let quizCorrectCount = 0;
+        let showQuizResult = false;
+        let quizOptionsData = [];
+
+        let incorrectItems = [];           // クイズで間違えた問題リスト
+        let totalQuizQuestions = 10;       // 今回のクイズ総問題数
+        let resultButtons = [];            // 結果画面の選択ボタン配列
+        let pressedResultBtnIndex = null;  // 結果画面で押下中のボタン識別子
+
+        function initDeck() {
+            deck = [];
+            for (let w of weatherTypes) {
+                deck.push({
+                    id: w.id,
+                    weather: w.id,
+                    name: w.name,
+                    info: w.info
+                });
+            }
+            shuffleArray(deck);
+            deckIndex = 0;
+
+            if (mode === 3 || mode === 4) {
+                resetQuiz(10);
+                generateQuizOptions();
+            }
+        }
+
+        function startReviewDeck() {
+            if (incorrectItems.length === 0) return;
+            deck = [...incorrectItems];
+            shuffleArray(deck);
+            deckIndex = 0;
+            resetQuiz(deck.length);
+            generateQuizOptions();
+        }
+
+        function resetQuiz(total = 10) {
+            quizQuestionCount = 1;
+            quizCorrectCount = 0;
+            totalQuizQuestions = total;
+            showQuizResult = false;
+            incorrectItems = [];
+        }
+
+        function generateQuizOptions() {
+            quizOptionsData = [];
+            const currentItem = deck[deckIndex];
+
+            quizOptionsData.push({
+                item: currentItem,
+                text: currentItem.name,
+                isCorrect: true
+            });
+
+            let decoys = [];
+            const otherWeathers = weatherTypes.filter(x => x.id !== currentItem.weather);
+            shuffleArray(otherWeathers);
+
+            for (let i = 0; i < 3; i++) {
+                const wObj = otherWeathers[i];
+                decoys.push({
+                    item: {
+                        id: wObj.id,
+                        weather: wObj.id,
+                        name: wObj.name,
+                        info: wObj.info
+                    },
+                    text: wObj.name,
+                    isCorrect: false
+                });
+            }
+
+            quizOptionsData = quizOptionsData.concat(decoys);
+            shuffleArray(quizOptionsData);
+        }
+
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+        let logicalWidth = 0;
+        let logicalHeight = 0;
+
+        function drawRoundedRect(ctx, x, y, width, height, radius) {
+            if (width < 2 * radius) radius = width / 2;
+            if (height < 2 * radius) radius = height / 2;
+
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function resizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = container.getBoundingClientRect();
+            logicalWidth = rect.width;
+            logicalHeight = rect.height;
+            
+            canvas.style.width = logicalWidth + 'px';
+            canvas.style.height = logicalHeight + 'px';
+            canvas.width = logicalWidth * dpr;
+            canvas.height = logicalHeight * dpr;
+            
+            ctx.resetTransform();
+            ctx.scale(dpr, dpr);
+            draw();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        const FONT_FAMILY = "'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif";
+
+        function drawWeatherSymbol(ctx, weatherId, cx, cy, radius, color = '#2c3e50') {
+            if (!weatherId) return;
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = Math.max(2, radius * 0.08);
+
+            // サブスクリプト（添字）を持つ記号の場合、中央の円をやや左寄りに描画して全体の見た目を美しく保つ
+            const hasSubscript = weatherId.endsWith('_tsuyoshi') || weatherId.startsWith('niwaka_') || weatherId === 'kirisame';
+            const baseCx = hasSubscript ? cx - radius * 0.18 : cx;
+
+            // 各記号の基本外形線
+            if (weatherId === 'kaisei') {
+                ctx.beginPath();
+                ctx.arc(baseCx, cy, radius, 0, Math.PI * 2);
+                ctx.stroke();
+            } else if (weatherId === 'hare') {
+                ctx.beginPath();
+                ctx.arc(baseCx, cy, radius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(baseCx, cy - radius);
+                ctx.lineTo(baseCx, cy + radius);
+                ctx.stroke();
+            } else if (weatherId === 'kumori') {
+                ctx.beginPath();
+                ctx.arc(baseCx, cy, radius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(baseCx, cy, radius * 0.58, 0, Math.PI * 2);
+                ctx.stroke();
+            } else if (weatherId === 'ame' || weatherId === 'ame_tsuyoshi' || weatherId === 'niwaka_ame' || weatherId === 'kirisame') {
+                ctx.beginPath();
+                ctx.arc(baseCx, cy, radius, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (weatherId === 'yuki' || weatherId === 'yuki_tsuyoshi' || weatherId === 'niwaka_yuki') {
+                ctx.beginPath();
+                ctx.arc(baseCx, cy, radius, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // 8方向の放射線（＋と×）
+                ctx.beginPath();
+                ctx.moveTo(baseCx, cy - radius);
+                ctx.lineTo(baseCx, cy + radius);
+                ctx.moveTo(baseCx - radius, cy);
+                ctx.lineTo(baseCx + radius, cy);
+                const p = radius * 0.707;
+                ctx.moveTo(baseCx - p, cy - p);
+                ctx.lineTo(baseCx + p, cy + p);
+                ctx.moveTo(baseCx - p, cy + p);
+                ctx.lineTo(baseCx + p, cy - p);
+                ctx.stroke();
+            } else if (weatherId === 'mizore') {
+                ctx.beginPath();
+                ctx.arc(baseCx, cy, radius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // 下半分を塗りつぶし（雨）
+                ctx.beginPath();
+                ctx.arc(baseCx, cy, radius, 0, Math.PI, false);
+                ctx.closePath();
+                ctx.fill();
+
+                // 上半分の雪の放射線
+                ctx.beginPath();
+                ctx.moveTo(baseCx, cy - radius);
+                ctx.lineTo(baseCx, cy);
+                const p = radius * 0.707;
+                ctx.moveTo(baseCx - p, cy - p);
+                ctx.lineTo(baseCx, cy);
+                ctx.moveTo(baseCx + p, cy - p);
+                ctx.lineTo(baseCx, cy);
+                ctx.stroke();
+            } else if (weatherId === 'arare') {
+                ctx.beginPath();
+                ctx.arc(baseCx, cy, radius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.beginPath();
+                const r = radius * 0.75;
+                const cos30 = 0.866;
+                const sin30 = 0.5;
+                ctx.moveTo(baseCx, cy - r);
+                ctx.lineTo(baseCx + r * cos30, cy + r * sin30);
+                ctx.lineTo(baseCx - r * cos30, cy + r * sin30);
+                ctx.closePath();
+                ctx.stroke();
+            } else if (weatherId === 'hyo') {
+                ctx.beginPath();
+                ctx.arc(baseCx, cy, radius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.beginPath();
+                const r = radius * 0.9;
+                const cos30 = 0.866;
+                const sin30 = 0.5;
+                ctx.moveTo(baseCx, cy - r);
+                ctx.lineTo(baseCx + r * cos30, cy + r * sin30);
+                ctx.lineTo(baseCx - r * cos30, cy + r * sin30);
+                ctx.closePath();
+                ctx.fill();
+            } else if (weatherId === 'kaminari' || weatherId === 'kaminari_tsuyoshi') {
+                ctx.beginPath();
+                ctx.arc(baseCx, cy, radius, 0, Math.PI, false);
+                ctx.closePath();
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(baseCx, cy, radius, 0, Math.PI * 2);
+                ctx.stroke();
+            } else if (weatherId === 'kiri') {
+                ctx.beginPath();
+                ctx.arc(baseCx, cy, radius, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.arc(baseCx, cy, radius * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (weatherId === 'tenki_fumei') {
+                ctx.beginPath();
+                ctx.arc(baseCx, cy, radius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                const p = radius * 0.707;
+                ctx.beginPath();
+                ctx.moveTo(baseCx - p, cy - p);
+                ctx.lineTo(baseCx + p, cy + p);
+                ctx.moveTo(baseCx - p, cy + p);
+                ctx.lineTo(baseCx + p, cy - p);
+                ctx.stroke();
+            }
+
+            // 添字（ツ・＝・キ）の描画
+            let subscript = '';
+            if (weatherId.endsWith('_tsuyoshi')) subscript = 'ツ';
+            else if (weatherId.startsWith('niwaka_')) subscript = '＝';
+            else if (weatherId === 'kirisame') subscript = 'キ';
+
+            if (subscript) {
+                ctx.font = `bold ${Math.round(radius * 0.85)}px ${FONT_FAMILY}`;
+                ctx.fillStyle = color;
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(subscript, baseCx + radius * 0.82, cy + radius * 1.05);
+            }
+
+            ctx.restore();
+        }
+
+        function updateButtonDisplay() {
+            const btnFlip = document.getElementById('btn-flip');
+            const btnNext = document.getElementById('btn-next');
+            const hintText = document.querySelector('.hint-text');
+
+            if (showQuizResult) {
+                btnFlip.style.display = 'none';
+                btnNext.style.display = 'none';
+                if (incorrectItems.length > 0) {
+                    hintText.textContent = "※「間違えた問題」または「最初から」を選択";
+                } else {
+                    hintText.textContent = "※全問正解おめでとうございます！";
+                }
+                return;
+            }
+
+            if (isFlipped) {
+                btnFlip.style.display = 'none';
+                btnNext.style.display = 'block';
+            } else {
+                btnFlip.style.display = (mode === 1 || mode === 2) ? 'block' : 'none';
+                btnNext.style.display = 'none';
+            }
+
+            if (mode === 3 || mode === 4) {
+                if (isFlipped) {
+                    hintText.textContent = "※カードをタップして次の問題へ";
+                } else {
+                    hintText.textContent = "※選択肢をタップして解答してください";
+                }
+            } else {
+                hintText.textContent = "※カードをタップしてもめくれます";
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, logicalWidth, logicalHeight);
+
+            if (showQuizResult) {
+                const cardWidth = Math.min(logicalWidth * 0.8, 500);
+                const cardHeight = Math.min(logicalHeight * 0.65, 340);
+                const centerX = logicalWidth / 2;
+                const centerY = logicalHeight / 2;
+
+                ctx.save();
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                ctx.shadowBlur = 20;
+                ctx.shadowOffsetY = 15;
+                ctx.fillStyle = '#ffffff';
+                drawRoundedRect(ctx, centerX - cardWidth / 2, centerY - cardHeight / 2, cardWidth, cardHeight, 24);
+                ctx.shadowColor = 'transparent';
+
+                ctx.fillStyle = '#333333';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                ctx.font = `bold ${Math.min(cardHeight * 0.11, 32)}px ${FONT_FAMILY}`;
+                ctx.fillText('クイズ結果', centerX, centerY - cardHeight * 0.32);
+
+                const rate = Math.floor((quizCorrectCount / totalQuizQuestions) * 100);
+                ctx.font = `bold ${Math.min(cardHeight * 0.22, 60)}px ${FONT_FAMILY}`;
+                ctx.fillStyle = rate === 100 ? '#27ae60' : '#e74c3c';
+                ctx.fillText(`${rate}%`, centerX, centerY - cardHeight * 0.08);
+
+                ctx.font = `bold ${Math.min(cardHeight * 0.08, 20)}px ${FONT_FAMILY}`;
+                ctx.fillStyle = '#333333';
+                ctx.fillText(`${totalQuizQuestions}問中 ${quizCorrectCount}問 正解！`, centerX, centerY + cardHeight * 0.08);
+
+                resultButtons = [];
+                const btnH = Math.min(cardHeight * 0.15, 48);
+
+                if (incorrectItems.length > 0) {
+                    const btnW = Math.min(cardWidth * 0.44, 210);
+                    const gap = 12;
+
+                    // 間違えた問題のみ再挑戦ボタン
+                    const b1x = centerX - btnW - gap / 2;
+                    const b1y = centerY + cardHeight * 0.22;
+                    resultButtons.push({ type: 'review', x: b1x, y: b1y, w: btnW, h: btnH });
+
+                    const isPressed1 = (pressedResultBtnIndex === 'review');
+                    const drawY1 = isPressed1 ? b1y + 3 : b1y;
+
+                    ctx.fillStyle = '#d35400';
+                    if (!isPressed1) drawRoundedRect(ctx, b1x, b1y + 3, btnW, btnH, 10);
+                    ctx.fillStyle = '#e67e22';
+                    drawRoundedRect(ctx, b1x, drawY1, btnW, btnH, 10);
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = `bold ${Math.min(btnH * 0.35, 14)}px ${FONT_FAMILY}`;
+                    ctx.fillText(`間違えた問題 (${incorrectItems.length}問)`, b1x + btnW / 2, drawY1 + btnH / 2);
+
+                    // 最初から挑戦ボタン
+                    const b2x = centerX + gap / 2;
+                    const b2y = centerY + cardHeight * 0.22;
+                    resultButtons.push({ type: 'restart', x: b2x, y: b2y, w: btnW, h: btnH });
+
+                    const isPressed2 = (pressedResultBtnIndex === 'restart');
+                    const drawY2 = isPressed2 ? b2y + 3 : b2y;
+
+                    ctx.fillStyle = '#1a252f';
+                    if (!isPressed2) drawRoundedRect(ctx, b2x, b2y + 3, btnW, btnH, 10);
+                    ctx.fillStyle = '#2c3e50';
+                    drawRoundedRect(ctx, b2x, drawY2, btnW, btnH, 10);
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = `bold ${Math.min(btnH * 0.35, 14)}px ${FONT_FAMILY}`;
+                    ctx.fillText('最初から挑戦 (10問)', b2x + btnW / 2, drawY2 + btnH / 2);
+
+                } else {
+                    const btnW = Math.min(cardWidth * 0.6, 250);
+                    const bx = centerX - btnW / 2;
+                    const by = centerY + cardHeight * 0.22;
+                    resultButtons.push({ type: 'restart', x: bx, y: by, w: btnW, h: btnH });
+
+                    const isPressed = (pressedResultBtnIndex === 'restart');
+                    const drawY = isPressed ? by + 3 : by;
+
+                    ctx.fillStyle = '#1e8449';
+                    if (!isPressed) drawRoundedRect(ctx, bx, by + 3, btnW, btnH, 10);
+                    ctx.fillStyle = '#27ae60';
+                    drawRoundedRect(ctx, bx, drawY, btnW, btnH, 10);
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = `bold ${Math.min(btnH * 0.4, 16)}px ${FONT_FAMILY}`;
+                    ctx.fillText('最初から挑戦 ↺', bx + btnW / 2, drawY + btnH / 2);
+                }
+
+                ctx.restore();
+                return;
+            }
+
+            const angle = flipProgress * Math.PI; 
+            const scaleX = Math.cos(angle);        
+            const isShowingBack = flipProgress >= 0.5;
+
+            let currentCardHeightRatio = 0.6;
+            let currentCenterY = logicalHeight / 2;
+
+            if (mode === 3 || mode === 4) {
+                if (!isAnimating && !isFlipped) {
+                    currentCardHeightRatio = 0.45;
+                    currentCenterY = logicalHeight * 0.35;
+                } else if (!isAnimating && isFlipped) {
+                    currentCardHeightRatio = 0.6;
+                    currentCenterY = logicalHeight / 2;
+                } else if (isAnimating) {
+                    const t = flipProgress;
+                    currentCardHeightRatio = 0.45 + (0.6 - 0.45) * t;
+                    currentCenterY = (logicalHeight * 0.35) + (logicalHeight / 2 - logicalHeight * 0.35) * t;
+                }
+            }
+
+            const cardWidth = Math.min(logicalWidth * 0.8, 500);
+            const cardHeight = Math.min(logicalHeight * currentCardHeightRatio, 300);
+            const centerX = logicalWidth / 2;
+            const centerY = currentCenterY;
+
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.scale(scaleX, 1);
+
+            ctx.fillStyle = '#ffffff';
+            
+            if (!isAnimating) {
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                ctx.shadowBlur = 20;
+                ctx.shadowOffsetY = 15;
+            } else {
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+                ctx.shadowBlur = 30;
+                ctx.shadowOffsetY = 5;
+            }
+
+            drawRoundedRect(ctx, -cardWidth / 2, -cardHeight / 2, cardWidth, cardHeight, 24);
+            ctx.shadowColor = 'transparent';
+
+            const currentData = deck[deckIndex];
+
+            if (scaleX < 0) ctx.scale(-1, 1);
+
+            if (mode === 3 || mode === 4) {
+                ctx.font = `bold 16px ${FONT_FAMILY}`;
+                ctx.fillStyle = '#bdc3c7';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                ctx.fillText(`Q. ${quizQuestionCount} / ${totalQuizQuestions}`, -cardWidth / 2 + 20, -cardHeight / 2 + 20);
+            }
+
+            // カードの表裏描画処理
+            if (mode === 1) { // 記号 → 天気名
+                if (!isShowingBack) {
+                    const radius = Math.min(cardWidth * 0.14, cardHeight * 0.22, 42);
+                    drawWeatherSymbol(ctx, currentData.weather, 0, 0, radius);
+                } else {
+                    ctx.fillStyle = '#333333';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    let fontSz = Math.min(cardHeight * 0.22, 42);
+                    ctx.font = `bold ${fontSz}px ${FONT_FAMILY}`;
+                    ctx.fillText(currentData.name, 0, 0);
+                }
+            } else if (mode === 2) { // 天気名 → 記号
+                if (!isShowingBack) {
+                    ctx.fillStyle = '#333333';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    let fontSz = Math.min(cardHeight * 0.22, 42);
+                    ctx.font = `bold ${fontSz}px ${FONT_FAMILY}`;
+                    ctx.fillText(currentData.name, 0, 0);
+
+                    ctx.font = `18px ${FONT_FAMILY}`;
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    ctx.fillText('Tap to Flip ↻', 0, cardHeight / 2 - 30);
+                } else {
+                    const radius = Math.min(cardWidth * 0.14, cardHeight * 0.22, 42);
+                    drawWeatherSymbol(ctx, currentData.weather, 0, 0, radius);
+                }
+            } else if (mode === 3) { // クイズ：記号 → 天気名
+                if (!isShowingBack) {
+                    const radius = Math.min(cardWidth * 0.12, cardHeight * 0.2, 38);
+                    drawWeatherSymbol(ctx, currentData.weather, 0, 5, radius);
+                } else {
+                    ctx.fillStyle = '#333333';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.font = `bold ${Math.min(cardHeight * 0.22, 40)}px ${FONT_FAMILY}`;
+                    ctx.fillText(currentData.name, 0, 0);
+                }
+            } else if (mode === 4) { // クイズ：天気名 → 記号
+                if (!isShowingBack) {
+                    ctx.fillStyle = '#333333';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.font = `bold ${Math.min(cardHeight * 0.22, 40)}px ${FONT_FAMILY}`;
+                    ctx.fillText(currentData.name, 0, 0);
+                } else {
+                    const radius = Math.min(cardWidth * 0.14, cardHeight * 0.22, 42);
+                    drawWeatherSymbol(ctx, currentData.weather, 0, 0, radius);
+                }
+            }
+
+            ctx.restore();
+
+            // 4択ボタンの描画
+            if ((mode === 3 || mode === 4) && !isShowingBack && !isAnimating) {
+                const btnWidth = Math.min(logicalWidth * 0.4, 240);
+                const btnHeight = Math.min(logicalHeight * 0.15, 60);
+                const gapX = Math.min(logicalWidth * 0.05, 20);
+                const gapY = 15;
+                const startY = centerY + cardHeight / 2 + Math.min(logicalHeight * 0.05, 25);
+                
+                quizButtons = [];
+                for(let i = 0; i < 4; i++) {
+                    const row = Math.floor(i / 2);
+                    const col = i % 2;
+                    const bx = logicalWidth / 2 + (col === 0 ? -btnWidth - gapX/2 : gapX/2);
+                    const by = startY + row * (btnHeight + gapY);
+                    
+                    quizButtons.push({
+                        x: bx, y: by, w: btnWidth, h: btnHeight,
+                        data: quizOptionsData[i]
+                    });
+                    
+                    const radius = 12;
+                    const isPressed = (i === pressedButtonIndex);
+                    const drawY = isPressed ? by + 4 : by;
+                    
+                    ctx.fillStyle = '#2980b9';
+                    if (!isPressed) drawRoundedRect(ctx, bx, by + 4, btnWidth, btnHeight, radius);
+
+                    ctx.fillStyle = '#3498db'; 
+                    drawRoundedRect(ctx, bx, drawY, btnWidth, btnHeight, radius);
+
+                    ctx.fillStyle = '#ffffff';
+                    
+                    if (mode === 3) {
+                        let btnFontSize = btnHeight * 0.36;
+                        if (quizOptionsData[i].text.length > 5) btnFontSize = btnHeight * 0.28;
+
+                        ctx.font = `bold ${btnFontSize}px ${FONT_FAMILY}`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(quizOptionsData[i].text, bx + btnWidth / 2, drawY + btnHeight / 2);
+                    } else if (mode === 4) {
+                        const symbolRadius = Math.min(btnHeight * 0.22, btnWidth * 0.08, 14);
+                        drawWeatherSymbol(
+                            ctx, 
+                            quizOptionsData[i].item.weather, 
+                            bx + btnWidth / 2, 
+                            drawY + btnHeight / 2, 
+                            symbolRadius, 
+                            '#ffffff'
+                        );
+                    }
+                }
+            }
+
+            // 正誤判定フィードバック
+            if (feedbackState === 1) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, 80, 0, Math.PI * 2);
+                ctx.lineWidth = 16;
+                ctx.strokeStyle = '#2ecc71';
+                ctx.stroke();
+                ctx.restore();
+            } else if (feedbackState === 2) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.lineWidth = 16;
+                ctx.strokeStyle = '#e74c3c';
+                ctx.lineCap = 'round';
+                ctx.moveTo(centerX - 60, centerY - 60);
+                ctx.lineTo(centerX + 60, centerY + 60);
+                ctx.moveTo(centerX + 60, centerY - 60);
+                ctx.lineTo(centerX - 60, centerY + 60);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        function animate(timestamp) {
+            if (isAnimating) {
+                if (!animationStartTime) animationStartTime = timestamp;
+                const elapsed = timestamp - animationStartTime;
+                let progress = elapsed / FLIP_DURATION;
+
+                if (progress >= 1) {
+                    progress = 1;
+                    isAnimating = false;
+                    animationStartTime = 0;
+                    isFlipped = !isFlipped;
+                    flipProgress = isFlipped ? 1 : 0;
+                    updateButtonDisplay();
+                    updateInfoBox();
+                } else {
+                    flipProgress = isFlipped ? (1 - progress) : progress;
+                }
+            }
+
+            draw();
+            requestAnimationFrame(animate);
+        }
+
+        function triggerFlip() {
+            if (isAnimating || showQuizResult) return;
+            isAnimating = true;
+            animationStartTime = 0;
+        }
+
+        function nextCard() {
+            if (isAnimating) return;
+
+            deckIndex = (deckIndex + 1) % deck.length;
+            isFlipped = false;
+            flipProgress = 0;
+            feedbackState = 0;
+
+            if (mode === 3 || mode === 4) {
+                quizQuestionCount++;
+                if (quizQuestionCount > totalQuizQuestions) {
+                    showQuizResult = true;
+                    updateButtonDisplay();
+                    hideInfoBox();
+                    return;
+                }
+                generateQuizOptions();
+            }
+
+            updateButtonDisplay();
+            hideInfoBox();
+        }
+
+        function updateInfoBox() {
+            const infoBox = document.getElementById('info-box');
+            const infoText = document.getElementById('info-text');
+            const currentData = deck[deckIndex];
+
+            if (isFlipped && currentData && currentData.info) {
+                infoText.textContent = currentData.info;
+                infoBox.classList.add('visible');
+            } else {
+                infoBox.classList.remove('visible');
+            }
+        }
+
+        function hideInfoBox() {
+            const infoBox = document.getElementById('info-box');
+            infoBox.classList.remove('visible');
+        }
+
+        function handlePointerDown(x, y) {
+            if (showQuizResult) {
+                for (let btn of resultButtons) {
+                    if (x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
+                        pressedResultBtnIndex = btn.type;
+                        return;
+                    }
+                }
+                return;
+            }
+
+            if ((mode === 3 || mode === 4) && !isFlipped && !isAnimating) {
+                for (let i = 0; i < quizButtons.length; i++) {
+                    const btn = quizButtons[i];
+                    if (x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
+                        pressedButtonIndex = i;
+                        return;
+                    }
+                }
+            }
+
+            if (mode === 1 || mode === 2) {
+                triggerFlip();
+            } else if ((mode === 3 || mode === 4) && isFlipped) {
+                nextCard();
+            }
+        }
+
+        function handlePointerUp(x, y) {
+            if (showQuizResult && pressedResultBtnIndex) {
+                const clickedType = pressedResultBtnIndex;
+                pressedResultBtnIndex = null;
+
+                const btn = resultButtons.find(b => b.type === clickedType);
+                if (btn && x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
+                    if (clickedType === 'review') {
+                        startReviewDeck();
+                    } else if (clickedType === 'restart') {
+                        initDeck();
+                    }
+                    updateButtonDisplay();
+                }
+                return;
+            }
+
+            if (pressedButtonIndex !== -1) {
+                const btn = quizButtons[pressedButtonIndex];
+                pressedButtonIndex = -1;
+
+                if (btn && x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
+                    if (btn.data.isCorrect) {
+                        feedbackState = 1;
+                        quizCorrectCount++;
+                    } else {
+                        feedbackState = 2;
+                        // 間違えた問題を誤答リストに保存（重複防止）
+                        const currentObj = deck[deckIndex];
+                        if (!incorrectItems.some(item => item.id === currentObj.id)) {
+                            incorrectItems.push(currentObj);
+                        }
+                    }
+
+                    setTimeout(() => {
+                        feedbackState = 0;
+                        triggerFlip();
+                    }, 700);
+                }
+            }
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            handlePointerDown(e.clientX - rect.left, e.clientY - rect.top);
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            handlePointerUp(e.clientX - rect.left, e.clientY - rect.top);
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            handlePointerDown(touch.clientX - rect.left, touch.clientY - rect.top);
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.changedTouches[0];
+            handlePointerUp(touch.clientX - rect.left, touch.clientY - rect.top);
+        }, { passive: true });
+
+        document.getElementById('btn-flip').addEventListener('click', triggerFlip);
+        document.getElementById('btn-next').addEventListener('click', nextCard);
+
+        const modeInputs = document.querySelectorAll('input[name="mode"]');
+        modeInputs.forEach(input => {
+            input.addEventListener('change', (e) => {
+                mode = parseInt(e.target.value, 10);
+                isFlipped = false;
+                flipProgress = 0;
+                feedbackState = 0;
+                hideInfoBox();
+                initDeck();
+                updateButtonDisplay();
+            });
+        });
+
+        function getSVGWeatherSymbol(id) {
+            const size = 32;
+            switch(id) {
+                case 'kaisei':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/></svg>`;
+                case 'hare':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><line x1="16" y1="4" x2="16" y2="28" stroke="#2c3e50" stroke-width="2"/></svg>`;
+                case 'kumori':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><circle cx="16" cy="16" r="7" stroke="#2c3e50" stroke-width="2" fill="none"/></svg>`;
+                case 'ame':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="#2c3e50"/></svg>`;
+                case 'ame_tsuyoshi':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="13" cy="16" r="10" fill="#2c3e50"/><text x="21" y="27" font-size="11" font-weight="bold" fill="#2c3e50">ツ</text></svg>`;
+                case 'niwaka_ame':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="13" cy="16" r="10" fill="#2c3e50"/><text x="21" y="27" font-size="11" font-weight="bold" fill="#2c3e50">＝</text></svg>`;
+                case 'kirisame':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="13" cy="16" r="10" fill="#2c3e50"/><text x="21" y="27" font-size="11" font-weight="bold" fill="#2c3e50">キ</text></svg>`;
+                case 'yuki':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><line x1="16" y1="4" x2="16" y2="28" stroke="#2c3e50" stroke-width="2"/><line x1="4" y1="16" x2="28" y2="16" stroke="#2c3e50" stroke-width="2"/><line x1="7.5" y1="7.5" x2="24.5" y2="24.5" stroke="#2c3e50" stroke-width="2"/><line x1="7.5" y1="24.5" x2="24.5" y2="7.5" stroke="#2c3e50" stroke-width="2"/></svg>`;
+                case 'yuki_tsuyoshi':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><g transform="translate(-3,0)"><circle cx="16" cy="16" r="10" stroke="#2c3e50" stroke-width="2" fill="none"/><line x1="16" y1="6" x2="16" y2="26" stroke="#2c3e50" stroke-width="2"/><line x1="6" y1="16" x2="26" y2="16" stroke="#2c3e50" stroke-width="2"/><line x1="8.9" y1="8.9" x2="23.1" y2="23.1" stroke="#2c3e50" stroke-width="2"/><line x1="8.9" y1="23.1" x2="23.1" y2="8.9" stroke="#2c3e50" stroke-width="2"/></g><text x="21" y="27" font-size="11" font-weight="bold" fill="#2c3e50">ツ</text></svg>`;
+                case 'niwaka_yuki':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><g transform="translate(-3,0)"><circle cx="16" cy="16" r="10" stroke="#2c3e50" stroke-width="2" fill="none"/><line x1="16" y1="6" x2="16" y2="26" stroke="#2c3e50" stroke-width="2"/><line x1="6" y1="16" x2="26" y2="16" stroke="#2c3e50" stroke-width="2"/><line x1="8.9" y1="8.9" x2="23.1" y2="23.1" stroke="#2c3e50" stroke-width="2"/><line x1="8.9" y1="23.1" x2="23.1" y2="8.9" stroke="#2c3e50" stroke-width="2"/></g><text x="21" y="27" font-size="11" font-weight="bold" fill="#2c3e50">＝</text></svg>`;
+                case 'mizore':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><path d="M 4 16 A 12 12 0 0 0 28 16 Z" fill="#2c3e50"/><line x1="16" y1="4" x2="16" y2="16" stroke="#2c3e50" stroke-width="2"/><line x1="7.5" y1="7.5" x2="16" y2="16" stroke="#2c3e50" stroke-width="2"/><line x1="24.5" y1="7.5" x2="16" y2="16" stroke="#2c3e50" stroke-width="2"/></svg>`;
+                case 'arare':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><polygon points="16,8 24,22 8,22" stroke="#2c3e50" stroke-width="2" fill="none"/></svg>`;
+                case 'hyo':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><polygon points="16,5.5 25.5,22.5 6.5,22.5" fill="#2c3e50"/></svg>`;
+                case 'kaminari':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><path d="M 4 16 A 12 12 0 0 0 28 16 Z" fill="#2c3e50"/></svg>`;
+                case 'kaminari_tsuyoshi':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><g transform="translate(-3,0)"><circle cx="16" cy="16" r="10" stroke="#2c3e50" stroke-width="2" fill="none"/><path d="M 6 16 A 10 10 0 0 0 26 16 Z" fill="#2c3e50"/></g><text x="21" y="27" font-size="11" font-weight="bold" fill="#2c3e50">ツ</text></svg>`;
+                case 'kiri':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><circle cx="16" cy="16" r="6" fill="#2c3e50"/></svg>`;
+                case 'tenki_fumei':
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><line x1="7.5" y1="7.5" x2="24.5" y2="24.5" stroke="#2c3e50" stroke-width="2"/><line x1="7.5" y1="24.5" x2="24.5" y2="7.5" stroke="#2c3e50" stroke-width="2"/></svg>`;
+                default:
+                    return '';
+            }
+        }
+
+        const modal = document.getElementById('list-modal');
+        const btnShowList = document.getElementById('btn-show-list');
+        const closeBtn = document.querySelector('.close-btn');
+        const listContainer = document.getElementById('list-container');
+
+        btnShowList.addEventListener('click', () => {
+            let html = `
+                <table class="list-table">
+                    <thead>
+                        <tr>
+                            <th class="symbol-cell">記号</th>
+                            <th>天気名</th>
+                            <th>記号の特徴</th>
+                            <th>説明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            for (let w of weatherTypes) {
+                html += `
+                    <tr>
+                        <td class="symbol-cell">${getSVGWeatherSymbol(w.id)}</td>
+                        <td><b>${w.name}</b></td>
+                        <td>${w.desc}</td>
+                        <td>${w.info}</td>
+                    </tr>
+                `;
+            }
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            listContainer.innerHTML = html;
+            modal.classList.add('show');
+        });
+
+        closeBtn.addEventListener('click', () => {
+            modal.classList.remove('show');
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) modal.classList.remove('show');
+        });
+
+        initDeck();
+        resizeCanvas();
+        updateButtonDisplay();
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>
