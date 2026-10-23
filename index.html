@@ -394,11 +394,11 @@
             { id: 'kumori', name: '曇り', desc: '◯の中に二重丸', info: '雲量が9〜10の状態。空のほとんどが雲で覆われています。' },
             { id: 'ame', name: '雨', desc: '● (黒塗り丸)', info: '通常の雨を表します。記号は全体が黒く塗られています。' },
             { id: 'ame_tsuyoshi', name: '強い雨', desc: '●の右下に「ツ」', info: '降水強度の強い雨を表します。「ツ」は強い（つよい）の略表記です。' },
-            { id: 'niwaka_ame', name: 'にわか雨', desc: '●の右下に「＝」', info: '一時的に降る強さの変化が急な雨を表します。「＝」はにわかを意味します。' },
+            { id: 'niwaka_ame', name: 'にわか雨', desc: '●の右下に「二」', info: '一時的に降る強さの変化が急な雨を表します。「二」はにわかを意味します。' },
             { id: 'kirisame', name: '霧雨', desc: '●の右下に「キ」', info: '水滴が非常に小さく細かな雨（きりさめ）を表します。「キ」は霧雨の略です。' },
-            { id: 'yuki', name: '雪', desc: '◯の中に放射線', info: '通常の雪を表します。白丸の中に米印（8方向の放射線）を描きます。' },
+            { id: 'yuki', name: '雪', desc: '◯の中に横線と斜め線', info: '通常の雪を表します。白丸の中に横線1本と対角線（X印）を描きます。' },
             { id: 'yuki_tsuyoshi', name: '強い雪', desc: '雪記号の右下に「ツ」', info: '降り方の強い雪を表します。' },
-            { id: 'niwaka_yuki', name: 'にわか雪', desc: '雪記号の右下に「＝」', info: '一時的に降るにわか雪を表します。' },
+            { id: 'niwaka_yuki', name: 'にわか雪', desc: '雪記号の右下に「二」', info: '一時的に降るにわか雪を表します。' },
             { id: 'mizore', name: 'みぞれ', desc: '上半分が雪、下半分が雨', info: '雨と雪が混ざって降る気象現象です。' },
             { id: 'arare', name: 'あられ', desc: '◯の中に三角形の輪郭', info: '直径5mm未満の氷の粒が降る現象です。' },
             { id: 'hyo', name: 'ひょう', desc: '◯の中に黒塗り三角形', info: '積乱雲から降る直径5mm以上の氷の塊です。' },
@@ -438,6 +438,18 @@
         let resultButtons = [];            // 結果画面の選択ボタン配列
         let pressedResultBtnIndex = null;  // 結果画面で押下中のボタン識別子
 
+        // 入力ロック（画面切り替え直後の誤タップ・貫通防止）
+        let isInputLocked = false;
+        let lockTimer = null;
+
+        function lockInput(duration = 400) {
+            isInputLocked = true;
+            if (lockTimer) clearTimeout(lockTimer);
+            lockTimer = setTimeout(() => {
+                isInputLocked = false;
+            }, duration);
+        }
+
         function initDeck() {
             deck = [];
             for (let w of weatherTypes) {
@@ -455,6 +467,7 @@
                 resetQuiz(10);
                 generateQuizOptions();
             }
+            lockInput(300);
         }
 
         function startReviewDeck() {
@@ -464,6 +477,7 @@
             deckIndex = 0;
             resetQuiz(deck.length);
             generateQuizOptions();
+            lockInput(400);
         }
 
         function resetQuiz(total = 10) {
@@ -590,10 +604,8 @@
                 ctx.arc(baseCx, cy, radius, 0, Math.PI * 2);
                 ctx.stroke();
                 
-                // 8方向の放射線（＋と×）
+                // 横線と斜め線（X印）
                 ctx.beginPath();
-                ctx.moveTo(baseCx, cy - radius);
-                ctx.lineTo(baseCx, cy + radius);
                 ctx.moveTo(baseCx - radius, cy);
                 ctx.lineTo(baseCx + radius, cy);
                 const p = radius * 0.707;
@@ -613,10 +625,10 @@
                 ctx.closePath();
                 ctx.fill();
 
-                // 上半分の雪の放射線
+                // 上半分の雪の線（横線と斜め線）
                 ctx.beginPath();
-                ctx.moveTo(baseCx, cy - radius);
-                ctx.lineTo(baseCx, cy);
+                ctx.moveTo(baseCx - radius, cy);
+                ctx.lineTo(baseCx + radius, cy);
                 const p = radius * 0.707;
                 ctx.moveTo(baseCx - p, cy - p);
                 ctx.lineTo(baseCx, cy);
@@ -629,12 +641,11 @@
                 ctx.stroke();
 
                 ctx.beginPath();
-                const r = radius * 0.75;
-                const cos30 = 0.866;
+                const cos30 = 0.866025;
                 const sin30 = 0.5;
-                ctx.moveTo(baseCx, cy - r);
-                ctx.lineTo(baseCx + r * cos30, cy + r * sin30);
-                ctx.lineTo(baseCx - r * cos30, cy + r * sin30);
+                ctx.moveTo(baseCx, cy - radius);
+                ctx.lineTo(baseCx + radius * cos30, cy + radius * sin30);
+                ctx.lineTo(baseCx - radius * cos30, cy + radius * sin30);
                 ctx.closePath();
                 ctx.stroke();
             } else if (weatherId === 'hyo') {
@@ -643,12 +654,11 @@
                 ctx.stroke();
 
                 ctx.beginPath();
-                const r = radius * 0.9;
-                const cos30 = 0.866;
+                const cos30 = 0.866025;
                 const sin30 = 0.5;
-                ctx.moveTo(baseCx, cy - r);
-                ctx.lineTo(baseCx + r * cos30, cy + r * sin30);
-                ctx.lineTo(baseCx - r * cos30, cy + r * sin30);
+                ctx.moveTo(baseCx, cy - radius);
+                ctx.lineTo(baseCx + radius * cos30, cy + radius * sin30);
+                ctx.lineTo(baseCx - radius * cos30, cy + radius * sin30);
                 ctx.closePath();
                 ctx.fill();
             } else if (weatherId === 'kaminari' || weatherId === 'kaminari_tsuyoshi') {
@@ -681,10 +691,10 @@
                 ctx.stroke();
             }
 
-            // 添字（ツ・＝・キ）の描画
+            // 添字（ツ・二・キ）の描画
             let subscript = '';
             if (weatherId.endsWith('_tsuyoshi')) subscript = 'ツ';
-            else if (weatherId.startsWith('niwaka_')) subscript = '＝';
+            else if (weatherId.startsWith('niwaka_')) subscript = '二';
             else if (weatherId === 'kirisame') subscript = 'キ';
 
             if (subscript) {
@@ -1091,6 +1101,8 @@
         }
 
         function handlePointerDown(x, y) {
+            if (isInputLocked) return;
+
             if (showQuizResult) {
                 for (let btn of resultButtons) {
                     if (x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h) {
@@ -1119,6 +1131,8 @@
         }
 
         function handlePointerUp(x, y) {
+            if (isInputLocked) return;
+
             if (showQuizResult && pressedResultBtnIndex) {
                 const clickedType = pressedResultBtnIndex;
                 pressedResultBtnIndex = null;
@@ -1155,22 +1169,27 @@
                     setTimeout(() => {
                         feedbackState = 0;
                         triggerFlip();
-                    }, 700);
+                    }, 800);
                 }
             }
         }
 
+        let isTouchDevice = false;
+
         canvas.addEventListener('mousedown', (e) => {
+            if (isTouchDevice) return;
             const rect = canvas.getBoundingClientRect();
             handlePointerDown(e.clientX - rect.left, e.clientY - rect.top);
         });
 
         canvas.addEventListener('mouseup', (e) => {
+            if (isTouchDevice) return;
             const rect = canvas.getBoundingClientRect();
             handlePointerUp(e.clientX - rect.left, e.clientY - rect.top);
         });
 
         canvas.addEventListener('touchstart', (e) => {
+            isTouchDevice = true;
             const rect = canvas.getBoundingClientRect();
             const touch = e.touches[0];
             handlePointerDown(touch.clientX - rect.left, touch.clientY - rect.top);
@@ -1212,21 +1231,21 @@
                 case 'ame_tsuyoshi':
                     return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="13" cy="16" r="10" fill="#2c3e50"/><text x="21" y="27" font-size="11" font-weight="bold" fill="#2c3e50">ツ</text></svg>`;
                 case 'niwaka_ame':
-                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="13" cy="16" r="10" fill="#2c3e50"/><text x="21" y="27" font-size="11" font-weight="bold" fill="#2c3e50">＝</text></svg>`;
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="13" cy="16" r="10" fill="#2c3e50"/><text x="21" y="27" font-size="11" font-weight="bold" fill="#2c3e50">二</text></svg>`;
                 case 'kirisame':
                     return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="13" cy="16" r="10" fill="#2c3e50"/><text x="21" y="27" font-size="11" font-weight="bold" fill="#2c3e50">キ</text></svg>`;
                 case 'yuki':
-                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><line x1="16" y1="4" x2="16" y2="28" stroke="#2c3e50" stroke-width="2"/><line x1="4" y1="16" x2="28" y2="16" stroke="#2c3e50" stroke-width="2"/><line x1="7.5" y1="7.5" x2="24.5" y2="24.5" stroke="#2c3e50" stroke-width="2"/><line x1="7.5" y1="24.5" x2="24.5" y2="7.5" stroke="#2c3e50" stroke-width="2"/></svg>`;
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><line x1="4" y1="16" x2="28" y2="16" stroke="#2c3e50" stroke-width="2"/><line x1="7.5" y1="7.5" x2="24.5" y2="24.5" stroke="#2c3e50" stroke-width="2"/><line x1="7.5" y1="24.5" x2="24.5" y2="7.5" stroke="#2c3e50" stroke-width="2"/></svg>`;
                 case 'yuki_tsuyoshi':
-                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><g transform="translate(-3,0)"><circle cx="16" cy="16" r="10" stroke="#2c3e50" stroke-width="2" fill="none"/><line x1="16" y1="6" x2="16" y2="26" stroke="#2c3e50" stroke-width="2"/><line x1="6" y1="16" x2="26" y2="16" stroke="#2c3e50" stroke-width="2"/><line x1="8.9" y1="8.9" x2="23.1" y2="23.1" stroke="#2c3e50" stroke-width="2"/><line x1="8.9" y1="23.1" x2="23.1" y2="8.9" stroke="#2c3e50" stroke-width="2"/></g><text x="21" y="27" font-size="11" font-weight="bold" fill="#2c3e50">ツ</text></svg>`;
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><g transform="translate(-3,0)"><circle cx="16" cy="16" r="10" stroke="#2c3e50" stroke-width="2" fill="none"/><line x1="6" y1="16" x2="26" y2="16" stroke="#2c3e50" stroke-width="2"/><line x1="8.9" y1="8.9" x2="23.1" y2="23.1" stroke="#2c3e50" stroke-width="2"/><line x1="8.9" y1="23.1" x2="23.1" y2="8.9" stroke="#2c3e50" stroke-width="2"/></g><text x="21" y="27" font-size="11" font-weight="bold" fill="#2c3e50">ツ</text></svg>`;
                 case 'niwaka_yuki':
-                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><g transform="translate(-3,0)"><circle cx="16" cy="16" r="10" stroke="#2c3e50" stroke-width="2" fill="none"/><line x1="16" y1="6" x2="16" y2="26" stroke="#2c3e50" stroke-width="2"/><line x1="6" y1="16" x2="26" y2="16" stroke="#2c3e50" stroke-width="2"/><line x1="8.9" y1="8.9" x2="23.1" y2="23.1" stroke="#2c3e50" stroke-width="2"/><line x1="8.9" y1="23.1" x2="23.1" y2="8.9" stroke="#2c3e50" stroke-width="2"/></g><text x="21" y="27" font-size="11" font-weight="bold" fill="#2c3e50">＝</text></svg>`;
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><g transform="translate(-3,0)"><circle cx="16" cy="16" r="10" stroke="#2c3e50" stroke-width="2" fill="none"/><line x1="6" y1="16" x2="26" y2="16" stroke="#2c3e50" stroke-width="2"/><line x1="8.9" y1="8.9" x2="23.1" y2="23.1" stroke="#2c3e50" stroke-width="2"/><line x1="8.9" y1="23.1" x2="23.1" y2="8.9" stroke="#2c3e50" stroke-width="2"/></g><text x="21" y="27" font-size="11" font-weight="bold" fill="#2c3e50">二</text></svg>`;
                 case 'mizore':
-                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><path d="M 4 16 A 12 12 0 0 0 28 16 Z" fill="#2c3e50"/><line x1="16" y1="4" x2="16" y2="16" stroke="#2c3e50" stroke-width="2"/><line x1="7.5" y1="7.5" x2="16" y2="16" stroke="#2c3e50" stroke-width="2"/><line x1="24.5" y1="7.5" x2="16" y2="16" stroke="#2c3e50" stroke-width="2"/></svg>`;
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><path d="M 4 16 A 12 12 0 0 0 28 16 Z" fill="#2c3e50"/><line x1="4" y1="16" x2="28" y2="16" stroke="#2c3e50" stroke-width="2"/><line x1="7.5" y1="7.5" x2="16" y2="16" stroke="#2c3e50" stroke-width="2"/><line x1="24.5" y1="7.5" x2="16" y2="16" stroke="#2c3e50" stroke-width="2"/></svg>`;
                 case 'arare':
-                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><polygon points="16,8 24,22 8,22" stroke="#2c3e50" stroke-width="2" fill="none"/></svg>`;
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><polygon points="16,4 26.39,22 5.61,22" stroke="#2c3e50" stroke-width="2" fill="none"/></svg>`;
                 case 'hyo':
-                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><polygon points="16,5.5 25.5,22.5 6.5,22.5" fill="#2c3e50"/></svg>`;
+                    return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><polygon points="16,4 26.39,22 5.61,22" fill="#2c3e50"/></svg>`;
                 case 'kaminari':
                     return `<svg width="${size}" height="${size}" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" stroke="#2c3e50" stroke-width="2" fill="none"/><path d="M 4 16 A 12 12 0 0 0 28 16 Z" fill="#2c3e50"/></svg>`;
                 case 'kaminari_tsuyoshi':
